@@ -110,10 +110,10 @@ def find_and_play_song(query_name):
     separate(["downloaded_songs/{}.mp3".format(title)], "processed_songs")
     playsound('processed_songs/{}/{}/no_vocals.mp3'.format(model, title), block=True)
 
-# while True:
-#     print('enter a song: ')
-#     query_name = input()
+while True:
+    print('enter a song: ')
+    query_name = input()
 
-#     find_and_play_song(query_name)
+    find_and_play_song(query_name)
 
     
