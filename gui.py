@@ -1,5 +1,7 @@
+print("To run this GUI, run `streamlit run gui.py`.")
+
 import streamlit as st
-from karaoke import find_and_play_song
+from helpers import find_song
 import pandas as pd
 
 if 'song_queue' not in st.session_state:
@@ -23,14 +25,27 @@ st.write('Song Queue:')
 if st.session_state['song_queue']:
     df = pd.DataFrame(st.session_state['song_queue'], columns=['Songs'])
     df['Songs'] = df['Songs'].apply(lambda x: f"> {x}" if df[df['Songs'] == x].index[0] == st.session_state['current_song_index'] else x)
+    df['Remove'] = range(len(df))
+    df = df.set_index('Remove')
     st.table(df.style.apply(lambda x: ['font-weight: bold' if x.name == st.session_state['current_song_index'] else '' for i in x], axis=1))
+
+    # Add a button for each song in the queue to remove it
+    for i in range(len(st.session_state['song_queue'])):
+        if st.button(f'Remove song {i}'):
+            st.session_state['song_queue'].pop(i)
+            st.session_state['current_song_index'] = -1 if i == st.session_state['current_song_index'] else st.session_state['current_song_index'] - 1 if i < st.session_state['current_song_index'] else st.session_state['current_song_index']
+            st.experimental_rerun()
 
 
 # Create a button to start the karaoke
 if st.button('Start Karaoke'):
-    while st.session_state['current_song_index'] < len(st.session_state['song_queue']):
+    while st.session_state['current_song_index'] < len(st.session_state['song_queue']) - 1:
         st.session_state['current_song_index'] += 1
-        find_and_play_song(song)
+        st.experimental_rerun()
+        song = st.session_state['song_queue'][st.session_state['current_song_index']]
+        path_to_song = find_song(song)
+
+        st.audio(path_to_song, format="audio/mp3", start_time=0)
         # # Get the lyrics
         # lyrics = get_lyrics(song)
         # # Display the lyrics
