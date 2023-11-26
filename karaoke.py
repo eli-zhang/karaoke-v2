@@ -11,9 +11,8 @@ import sys
 import yt_dlp
 import json
 import re
-import requests
-import urllib.request 
-from bs4 import BeautifulSoup 
+import os
+
 from typing import Dict, Tuple, Optional, IO
 from youtubesearchpython import SearchVideos
 from playsound import playsound
@@ -29,34 +28,6 @@ mp3_rate = 320
 float32 = False  # output as float 32 wavs, unsused if 'mp3' is True.
 int24 = False    # output as int24 wavs, unused if 'mp3' is True.
 # You cannot set both `float32 = True` and `int24 = True` !!
-
-# https://www.quora.com/Whats-a-good-API-to-use-to-get-song-lyrics
-def get_lyrics(song_title): 
-    # remove all except alphanumeric characters from artist and song_title 
-    title = re.sub(' ', "+", song_title)
-    search_url = 'https://search.azlyrics.com/search.php?q={}'.format(title)
-    print(search_url)
-    page = requests.get(search_url)
-    try:
-        soup = BeautifulSoup(page.content, 'html.parser')
-        url = soup.find('td').find('a')['href']
-
-    except Exception as e: 
-        return "Exception occurred \n" + str(e) 
-     
-    try: 
-        content = urllib.request.urlopen(url).read() 
-        soup = BeautifulSoup(content, 'html.parser') 
-        lyrics = str(soup) 
-        # lyrics lies between up_partition and down_partition 
-        up_partition = '<!-- Usage of azlyrics.com content by any third-party lyrics provider is prohibited by our licensing agreement. Sorry about that. -->' 
-        down_partition = '<!-- MxM banner -->' 
-        lyrics = lyrics.split(up_partition)[1] 
-        lyrics = lyrics.split(down_partition)[0] 
-        lyrics = lyrics.replace('<br>','').replace('</br>','').replace('<br/>','').replace('</div>','').replace('<i>','').replace('</i>','').strip() 
-        return lyrics 
-    except Exception as e: 
-        return "Exception occurred \n" +str(e) 
 
 def copy_process_streams(process: sp.Popen):
     def raw(stream: Optional[IO[bytes]]) -> IO[bytes]:
@@ -103,18 +74,17 @@ def separate(input_path=None, output_path=None):
     if p.returncode != 0:
         print("Command failed, something went wrong.")
 
-while True:
-    print('enter a song: ')
-    name = input()
-    print('searching...')
-    search = SearchVideos(name, offset = 1, mode = "json", max_results = 1)
+def fetch_matching_song_name(query_name):
+    search = SearchVideos(query_name, offset = 1, mode = "json", max_results = 1)
     result = json.loads(search.result())['search_result'][0]
     link = result['link']
     init_title = result['title']
     title = "".join([c for c in init_title if c.isalpha() or c.isdigit()]).rstrip()
     artist = result['channel']
     print('loading...')
+    return [link, title]
 
+def download_song(link, title):
     ydl_opts = {
         'outtmpl': './downloaded_songs/{}.%(ext)s'.format(title),
         'format': 'bestaudio/best',
@@ -128,9 +98,22 @@ while True:
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         result = ydl.download([link])
 
-    print("done downloading.")
+def find_and_play_song(query_name):
+    print('searching...')
+    [link, title] = fetch_matching_song_name(query_name)
 
+    if os.path.exists('processed_songs/{}/{}/no_vocals.mp3'.format(model, title)):
+        playsound('processed_songs/{}/{}/no_vocals.mp3'.format(model, title), block=True)
+        return
+
+    download_song(link, title)
     separate(["downloaded_songs/{}.mp3".format(title)], "processed_songs")
+    playsound('processed_songs/{}/{}/no_vocals.mp3'.format(model, title), block=True)
 
-    playsound('processed_songs/{}/{}/no_vocals.mp3'.format(model, title), block=False)
-    print(get_lyrics(name))
+# while True:
+#     print('enter a song: ')
+#     query_name = input()
+
+#     find_and_play_song(query_name)
+
+    
